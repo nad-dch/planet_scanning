@@ -26,10 +26,10 @@ def get_planet_timelines(planet_id, start_date, end_date,
 	obj = Horizons(id = str(planet_id), id_type = 'majorbody', 
 					location = None, epochs = Epochs)
 	eph = obj.ephemerides()
-    ra = np.array(eph['RA'])
-    dec = np.array(eph['DEC'])
-    t = np.array(eph['datetime_jd'])
-    timelines = {'t':t, 'ra':ra, 'dec':dec}
+	ra = np.array(eph['RA'])
+	dec = np.array(eph['DEC'])
+	t = np.array(eph['datetime_jd'])
+	timelines = {'t':t, 'ra':ra, 'dec':dec}
 
 	np.save(opj(filefolder, 'Planet_'+str(planet_id)+'_timelines'),timelines)
 
