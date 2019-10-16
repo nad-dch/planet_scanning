@@ -1,10 +1,16 @@
-import nump as np
+import numpy as np
 
-def white_noise(rms=1.0):
+def white_noise(nsamp, sigma=1.0, mu=0.0):
+    '''
+    '''
 
-	return np.randn(rms)
+    return sigma*np.random.randn(nsamp)+mu
 
-def onef_noise(rms=1.0, alpha=1.0, beta=1.0):
+def onef_noise(nsamp, sigma=1.0, fknee=1.0):
+    '''
+    '''
 
-	pass
-	
+    pass
+
+
+
