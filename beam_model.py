@@ -10,7 +10,7 @@ def gaussian_beam(theta, fwhm=40.0):
     fwhm : beam FWHM in arcmin
     '''
 
-    sigma = FWHM / np.sqrt(8*np.log(2))
+    sigma = fwhm / np.sqrt(8*np.log(2))
 
     return np.exp(-0.5*theta**2/sigma**2)
 

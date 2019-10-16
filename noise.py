@@ -1,11 +1,16 @@
 import numpy as np
 
-def white_noise(mu=0.0, rms=1.0, t_size):
+def white_noise(nsamp, sigma=1.0, mu=0.0):
+    '''
+    '''
 
-	return sigma*np.random.randn(t_size)+mu
+    return sigma*np.random.randn(nsamp)+mu
 
-def one_f_noise(mu,rms,t_size):
+def onef_noise(nsamp, sigma=1.0, fknee=1.0):
+    '''
+    '''
 
-    return 1/(white_noise(mu,rms,t_size).sort())
+    pass
 
-	
+
+
