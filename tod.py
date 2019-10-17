@@ -15,3 +15,5 @@ def fake_raster(nsamp, box=60):
     deci = np.interp(xi, x, dec)
 
     return rai, deci
+
+

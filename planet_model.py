@@ -8,14 +8,32 @@ h = constants.h
 kb = constants.k
 c = constants.c
 
-def brightness(T , d):
+def planet_brightness(nu, T, planet='mars'):
     '''
     Insert useful comment
     '''
 
-    B = 2*h*(v**2)*k*T/(c**2)*4*np.pi*(d**2)
+    B = 2*h*(v**2)*k*T/(c**2)*4*np.pi*(pd(planet=planet)**2)
 
     return B
+
+def pd(planet='mars'):
+    '''
+    Returns the planet diameter as seen from L2 in units of arcsec
+
+
+    '''
+
+    if planet=='mars':
+        return 8.0
+    elif planet=='jupiter':
+        return 40.0
+
+    ### Add to this
+
+    else:
+        raise ValueError('planet has to be one of [mars, jupiter, saturn, uranus, neptune')
+
 
 def planck_func(nu, T=2.7255, deriv=False):
     '''
@@ -28,7 +46,7 @@ def planck_func(nu, T=2.7255, deriv=False):
 
     Keyword arguments
     ------------------
-    T : float 
+    T : float
       (Default : 2.7255)
     deriv : bool
       (Default : False)
@@ -54,7 +72,7 @@ def rj_func(nu, T=1.0):
 
     Keyword arguments
     ------------------
-    T : float 
+    T : float
       (Default : 1.0)
 
     '''
