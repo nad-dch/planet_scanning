@@ -38,7 +38,7 @@ def onef_noise(nsamp, sigma=1.0, fknee=20e-04):
 
 
 
-def psd_noise_model_no_h(f = np.array(np.linspace(0,0.040,10)), white = 10e-05,fknee = 20e-03, alpha = -1, fmin = 0.1):
+def psd_noise_model_no_h(f, white = 10e-05,fknee = 20e-03, alpha = 1, fmin = 0.1):
     '''
     The same as psd_noise_model, but with know hknee.
 
@@ -57,10 +57,37 @@ def psd_noise_model_no_h(f = np.array(np.linspace(0,0.040,10)), white = 10e-05,f
     Returns:
         psd (float): The psd model as a function of f.
     '''
+    
     white = white**2
     alpha = 2*alpha
 
     return white * ((f**alpha + fknee**alpha) / (f**alpha + fmin**alpha))
+
+
+def get_tod_from_psd(psd, check = True):
+    '''
+    The purpose of this function is to return the timeline data given a psd
+
+    Arguments:
+    	psd   : Array of psd values
+    	check : bool,optional. Performs the inverse transformation to check
+    			the output. 
+	Returns:
+		timeline data : array of floats
+	'''
+	amplitude = np.sqrt(2*psd)
+	phase = np.random_sample()
+	z = amplitude*np.exp(j*phase)
+	onef_tod = scipy.fftpack.ifft(z)
+
+	if check = True:
+
+		if scipy.fftpack.fft(onef_tod) = psd:
+			print('the function is working')
+		else:
+			print('change your function')
+
+	return(onef_tod)
 
 
 
