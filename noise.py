@@ -165,9 +165,9 @@ def test_noise_model():
 	noise_psd = psd_noise_model_no_h()
 	plt.plot(f,noise_psd)
 	plt.show()
-    noisy_timeline = get_tod_from_psd(noise_psd, check = True)
-    plt.plot(f,noisy_timeline)
-    plt.show()
+	noisy_timeline = get_tod_from_psd(noise_psd, check = True)
+        plt.plot(f,noisy_timeline)
+        plt.show()
 
 def main():
 
