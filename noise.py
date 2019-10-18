@@ -16,10 +16,10 @@ def onef_noise(nsamp, sigma=1.0, fknee=20e-03):
     Generate the desired 1/f noise tod
 
     Arguments:
-	    nsamp : length of the sample
-	    fknee : knee frequency, e.g., value at which the frequency equals
-	    		2 times the white noise floor
-		fs : the frequency sample 1/nsamp
+        nsamp : length of the sample
+        fknee : knee frequency, e.g., value at which the frequency equals
+                2 times the white noise floor
+        fs : the frequency sample 1/nsamp
     '''
     C_k=[]
     fs = 2*fknee*np.random.sample(nsamp)
@@ -51,40 +51,40 @@ def psd_noise_model_no_h(f = np.array(np.linspace(0,30e-03,100)), white = 10e-05
         fmin : Minimum frequency.
             This can either describe a spectrum that levels out at low
             frequency, or be set to a small value to prevent diverging
-            as f approaches 0.    
+            as f approaches 0.
 
     Returns:
         psd (float): The psd model as a function of f.
     '''
-    
+
     white = white**2
     #alpha = 2*alpha
     return white * (fknee**alpha) / (f**alpha + fmin**alpha)
 
-def get_tod_from_psd(psd, check = True):
+def get_tod_from_psd(psd, check=True):
     '''
     The purpose of this function is to return the timeline data given a psd
 
     Arguments:
-    	psd   : Array of psd values
-    	check : bool,optional. Performs the inverse transformation to check
-    			the output. 
-	Returns:
-		timeline data : array of floats
-	'''
-	amplitude = np.sqrt(2*psd)
-	phase = 2*np.pi*np.random.sample()
-	z = amplitude*np.exp(j*phase)
-	onef_tod = scipy.fftpack.ifft(z)
+        psd   : Array of psd values
+        check : bool,optional. Performs the inverse transformation to check
+                the output.
+    Returns:
+        timeline data : array of floats
+    '''
+    amplitude = np.sqrt(2*psd)
+    phase = 2*np.pi*np.random.sample()
+    z = amplitude*np.exp(j*phase)
+    onef_tod = scipy.fftpack.ifft(z)
 
-	if check = True:
+    if check == True:
 
-		if scipy.fftpack.fft(onef_tod) = psd:
-			print('the function is working')
-		else:
-			print('change your function')
+        if scipy.fftpack.fft(onef_tod) == psd:
+            print('the function is working')
+        else:
+            print('change your function')
 
-	return(onef_tod)
+    return(onef_tod)
 
 # method 3: calculate a 1/f Fourier filter kernel amd interpolate it to the frequencies of the TOD
 
@@ -109,7 +109,7 @@ def notch_kernel(f, fc, w, ns=5):
     krnl = np.ones_like(f)
     cond = (f > f_low) & (f < f_hi)
     krnl[cond] = 1.0 - np.exp(-0.5*((f[cond]-fc)/w)**2)
-    
+
     if not np.all(np.isfinite(krnl)):
         raise ValueError("Invalid value in notch_kernel")
 
@@ -145,7 +145,7 @@ def interp_kernel(freq , krnl, nsamp=None, fsamp=None, new_freq=None):
         f = np.fft.fftfreq(nsamp, dt)
     else:
         raise ValueError("Need either nsamp and fsamp, or new_freq")
-    
+
     #Check that the tabulated frequencies are monotonic
     if not np.all(np.diff(freq)):
         raise ValueError("input kernel frequencies are not monotonic.")
@@ -155,19 +155,20 @@ def interp_kernel(freq , krnl, nsamp=None, fsamp=None, new_freq=None):
     #Interpolate the real and imaginary bits separately
     k_re = np.interp(np.abs(f), freq, krnl.real)
     k_im = np.interp(np.abs(f), freq, krnl.imag)
-    k_im[f < 0] *= (-1)         #Negative frequencies are conjugate 
+    k_im[f < 0] *= (-1)         #Negative frequencies are conjugate
     return k_re + (1j)*k_im
 
 # test
 
 def test_noise_model():
-	f = np.array(np.linspace(0,30e-02,10))
-	noise_psd = psd_noise_model_no_h()
-	plt.plot(f,noise_psd)
-	plt.show()
-	noisy_timeline = get_tod_from_psd(noise_psd, check = True)
-        plt.plot(f,noisy_timeline)
-        plt.show()
+
+    noise_psd = psd_noise_model_no_h()
+    f = np.array(np.linspace(0, 30e-2, len(noise_psd)))
+    plt.plot(f, noise_psd)
+    plt.show()
+    noisy_timeline = get_tod_from_psd(noise_psd, check = True)
+    plt.plot(f,noisy_timeline)
+    plt.show()
 
 def main():
 
