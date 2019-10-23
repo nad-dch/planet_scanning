@@ -193,22 +193,23 @@ def noise_rel(nsamp, fsamp, fin=None, psdin=None):
     '''
 
     # Ensure that input parameters are interpreted as floats
-    nsamp = float(nsamp)
-    fsamp = float(fsamp)
+    nsamp = int(nsamp)
+    fsamp = int(fsamp)
 
     # Using default values
     if fin is None or psdin is None:
         fin, psdin = noise_psd()
 
     hnsamp = nsamp/2 # Half the length of the output timestream
+    hnsamp=int(hnsamp)
     dt = 1/fsamp
     duration = nsamp*dt
 
     # The frequency used as the abscissa for interpolation
     f = np.zeros(nsamp)
     f[0]= 0
-    f[1:(hnsamp+1)] = np.linspace(fsamp/nsamp, fsamp/2, hnsamp)
-    ftmp = f[1:hnsamp]
+    f[1:(hnsamp+1)] = np.linspace((fsamp/nsamp), (fsamp/2), (hnsamp))
+    ftmp = f[1:(hnsamp)]
     ftmp = ftmp[::-1] # Flipping the vector around
     f[(hnsamp+1):] = ftmp
 
@@ -219,8 +220,7 @@ def noise_rel(nsamp, fsamp, fin=None, psdin=None):
     # Gaussian random vector with zero mean and unit variance
     np.random.seed()
     w = np.random.randn(nsamp)
-
-    ntilde = np.zeros(nsamp, dtype='complex64')
+    ntilde = np.zeros(int(nsamp), dtype='complex64')
     ntilde[0] = w[0]*np.sqrt(psdi[0]/duration) # Zero by construction
     ntilde[hnsamp] = w[-1]*np.sqrt(psdi[hnsamp]/duration)
 
@@ -256,14 +256,13 @@ def test_option4():
 
     # Noise timestream
     plt.plot(noise_out)
-    plt.savefig('img/noise_out.png', dpi=300)
-    plt.close()
+    #plt.savefig('img/noise_out.png', dpi=300)
+    plt.show()
 
     # Noise PSD
     plt.loglog(f, psd)
-    plt.savefig('img/noise_psd.png', dpi=300)
-    plt.close()
-
+    #plt.savefig('img/noise_psd.png', dpi=300)
+    plt.show()
 def main():
 
     # test_noise_model()

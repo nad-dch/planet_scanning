@@ -14,6 +14,13 @@ def gaussian_beam(theta, fwhm=40.0):
 
     return np.exp(-0.5*theta**2/sigma**2)
 
+def H_beam():
+
+    '''
+    construct Hiroaki's beam(band-averaged 
+    truncated Gaussian)
+    '''
+    pass()
 
 def po_beam():
 
