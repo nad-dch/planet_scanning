@@ -34,12 +34,12 @@ def get_interpolated_theta(ra,dec,nsamp):
 	'''
 
 	x = np.arange(len(ra))
-    xi = np.linspace(0, len(x), nsamp)
-    rai = np.interp(xi, x, ra)
-    deci = np.interp(xi, x, dec)
-    theta_int = np.sqrt(ra**2 + dec**2)
+        xi = np.linspace(0, len(x), nsamp)
+    	rai = np.interp(xi, x, ra)
+    	deci = np.interp(xi, x, dec)
+    	theta_int = np.sqrt(ra**2 + dec**2)
 
-    return(theta_int)
+    	return(theta_int)
 
 def estimate_bias(expected,measured):
 	'''
@@ -79,40 +79,40 @@ def scan_planet(nsamp=1000, planet_id=5, nu=100e9, T=110,
 		ra,dec = get_planet_timelines()
 
 	theta = get_interpolated_theta(ra,dec,nsamp)
-    amplitude = pm.planck_func(nu,T)
+    	amplitude = pm.planck_func(nu,T)
 
-    if beam_type='gaussian':
-    	signal = amplitude * bm.gaussian_beam(theta)
+    	if beam_type='gaussian':
+    		signal = amplitude * bm.gaussian_beam(theta)
 
-    if noise_presence == False:
+    	if noise_presence == False:
 		return(signal)
 
-    else:
+   	else:
     	#assure that you also change noise_type when
     	#turning noise_presence into True
-    	if noise_type == None:
+		if noise_type == None:
 			print('you forgot to set noise_type')
 
-    	if noise_type == 'white':
-    		noise = nm.white(nsamp,sigma=0.01)
+    		if noise_type == 'white':
+    			noise = nm.white(nsamp,sigma=0.01)
 
 		else:
 			noise = nm.noise_rel(nsamp, fsamp=5)
 
-    	n_signal = signal+noise
+    		n_signal = signal+noise
 
-    	#fit the curve in the presence of noise
-    	mean = sum(ra*n_signal)/len(ra)                   
-		sigma = sum(n_signal*(ra-mean)**2)/len(ra) 
-    	popt,pcov = curve_fit(gaus,ra,n_signal,p0=[1,mean,sigma])
-    	fitted_values = gaus(ra,*popt)
+		#fit the curve in the presence of noise
+		mean = sum(ra*n_signal)/len(ra)                   
+			sigma = sum(n_signal*(ra-mean)**2)/len(ra) 
+		popt,pcov = curve_fit(gaus,ra,n_signal,p0=[1,mean,sigma])
+		fitted_values = gaus(ra,*popt)
 
-    	#plt.plot(ra,n_signal,label='actual signal')
-    	#plt.plot(ra,fitted_values,label='fitted signal')
+		#plt.plot(ra,n_signal,label='actual signal')
+		#plt.plot(ra,fitted_values,label='fitted signal')
 
-    	if compute_bias == True:
-    		bias = estimate_bias(signal,fitted_values)
-    		#print(bias)
+		if compute_bias == True:
+			bias = estimate_bias(signal,fitted_values)
+			#print(bias)
 
 		return(fitted_values,bias)
 
