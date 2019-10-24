@@ -19,7 +19,7 @@ def gaus(x,a,x0,sigma):
 	Array of Gaussian curve values
 
 	'''
-    return a*np.exp(-(x-x0)**2/(2*sigma**2))
+	return a*np.exp(-(x-x0)**2/(2*sigma**2))
 
 def get_interpolated_theta(ra,dec,nsamp):
 	'''
@@ -34,25 +34,25 @@ def get_interpolated_theta(ra,dec,nsamp):
 	'''
 
 	x = np.arange(len(ra))
-    xi = np.linspace(0, len(x), nsamp)
-    rai = np.interp(xi, x, ra)
-    deci = np.interp(xi, x, dec)
-    theta_int = np.sqrt(ra**2 + dec**2)
+	xi = np.linspace(0, len(x), nsamp)
+	rai = np.interp(xi, x, ra)
+	deci = np.interp(xi, x, dec)
+	theta_int = np.sqrt(rai**2 + deci**2)
 
-    return(theta_int)
+	return(theta_int)
 
 def estimate_bias(expected,measured):
 	'''
 	Returns the bias of the estimation
 	'''
 
-	bias = ((measured-expected)**2)/expected
+	bias = (measured-expected)/expected
 	bias = np.sum(bias)
 	return(bias)
 
-def scan_planet(nsamp=1000, planet_id=5, nu=100e9, T=110, 
+def scan_planet(ra, dec, nsamp=10000, planet_id=5, nu=100e9, T=110, 
 				beam_type='gaussian', noise_presence=True, 
-				noise_type='onef', compute_bias=True, ra, dec):
+				noise_type='onef', compute_bias=True):
 
 	'''
 	A function that outputs the signal tod from a planet scanning
@@ -76,43 +76,47 @@ def scan_planet(nsamp=1000, planet_id=5, nu=100e9, T=110,
 	'''
 
 	if ra is None or dec is None:
-		ra,dec = get_planet_timelines()
+		ra,dec = tod.fake_raster(nsamp)
 
 	theta = get_interpolated_theta(ra,dec,nsamp)
-    amplitude = pm.planck_func(nu,T)
+	#amplitude = pm.planck_func(nu,T)
+	amplitude = 1.0
+	print(amplitude)
 
-    if beam_type='gaussian':
-    	signal = amplitude * bm.gaussian_beam(theta)
+	if beam_type == 'gaussian':
+		signal = amplitude * bm.gaussian_beam(theta)
 
-    if noise_presence == False:
+	if noise_presence == False:
 		return(signal)
 
-    else:
+	else:
     	#assure that you also change noise_type when
     	#turning noise_presence into True
-    	if noise_type == None:
+		if noise_type == None:
 			print('you forgot to set noise_type')
 
-    	if noise_type == 'white':
-    		noise = nm.white(nsamp,sigma=0.01)
+		if noise_type == 'white':
+			noise = nm.white(nsamp,sigma=0.01)
 
 		else:
-			noise = nm.noise_rel(nsamp, fsamp=5)
+			noise = nm.noise_rel(nsamp, fsamp=50)
 
-    	n_signal = signal+noise
+		n_signal = signal+noise
 
     	#fit the curve in the presence of noise
-    	mean = sum(ra*n_signal)/len(ra)                   
+		n_signal = np.real(n_signal)
+		print(signal[3],n_signal[3])
+		mean = sum(ra*n_signal)/len(ra)                   
 		sigma = sum(n_signal*(ra-mean)**2)/len(ra) 
-    	popt,pcov = curve_fit(gaus,ra,n_signal,p0=[1,mean,sigma])
-    	fitted_values = gaus(ra,*popt)
+		popt,pcov = curve_fit(gaus,ra,n_signal,p0=[1,mean,sigma])
+		fitted_values = gaus(ra,*popt)
 
-    	#plt.plot(ra,n_signal,label='actual signal')
-    	#plt.plot(ra,fitted_values,label='fitted signal')
+		plt.plot(ra,n_signal,label='actual signal')
+		plt.plot(ra,fitted_values,label='fitted signal')
 
-    	if compute_bias == True:
-    		bias = estimate_bias(signal,fitted_values)
-    		#print(bias)
+		if compute_bias == True:
+			bias = estimate_bias(signal,fitted_values)
+		print(bias)
 
 		return(fitted_values,bias)
 
@@ -155,7 +159,4 @@ def exclude_fitting_bias():
 
 	'''
 
-
-
-
-
+scan_planet(ra=None,dec=None)
