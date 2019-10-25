@@ -165,7 +165,7 @@ def extrap(x, xp, yp):
     y = np.where(x>xp[-1], yp[-1]+(x-xp[-1])*(yp[-1]-yp[-2])/(xp[-1]-xp[-2]), y)
     return y
 
-def noise_psd(sigma0=1.0, fknee=0.020, alpha=1.5,
+def noise_psd(sigma0=0.01, fknee=0.020, alpha=1.5,
     f=np.logspace(-3, 2, 100)):
     '''
     Generates a noise PSD from a three-paramater noise model
