@@ -10,27 +10,32 @@ import planet_model as pm
 import example_jpl as jpl
 opj = os.path.join
 
-def gaus(x,a,x0,sigma):
+
+def gaus_2D((x, y), mean_x, mean_y, sigma_x, sigma_y, xo, yo, amplitude=1, 
+        theta=0, offset=0): 
     '''
     The Gaussian probability function
-
     Returns
     -------
     Array of Gaussian curve values
-
     '''
-    return a*np.exp(-(x-x0)**2/(2*sigma**2))
+    
+    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
+    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
+    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
+    g = amplitude*np.exp( - (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) 
+    + c*((y-yo)**2)))
+
+    return (g.ravel())
 
 def get_interpolated_theta(ra,dec,nsamp):
     '''
     Interpolates ra and dec to correspond to
     the given sample length
-
     Returns
     -------
     theta_int : float
         The angles for the given sample length
-
     '''
 
     x = np.arange(len(ra))
@@ -55,7 +60,6 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
 
     '''
     A function that outputs the signal tod from a planet scanning
-
     Arguments:
         nsamp : sample length
         planet_id : define the planet you want to scan
@@ -65,13 +69,11 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
         noise_presence : bool
         noise_type : string 'gaussian','onef'
         compute_bias : bool. default value = True
-
     Returns:
     -------
         signal or fitted_values: Array of amplitude signal or
                                     noisy signals fitted values
         bias : the bias of the estimation
-
     '''
 
     if real_data == False:
@@ -106,10 +108,14 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
 
     #fit the curve in the presence of noise
     n_signal = np.real(n_signal)
-    mean = sum(ra*n_signal)/len(ra)
-    sigma = sum(n_signal*(ra-mean)**2)/len(ra)
-    popt,pcov = curve_fit(gaus,ra,n_signal,p0=[1,mean,sigma])
-    fitted_values = gaus(ra,*popt)
+    mean_ra = sum(ra*n_signal)/len(ra)
+    sigma_ra = sum(n_signal*(ra-mean_ra)**2)/len(ra)
+    mean_dec = sum(dec*n_signal)/len(dec)
+    sigma_dec = sum(n_signal*(dec-mean_dec)**2)/len(dec)
+    initial_guess = (1,mean_ra,mean_dec,sigma_ra,sigma_dec,0,0)
+    print(len(ra),len(dec),len(n_signal))
+    popt,pcov = curve_fit(gaus_2D,(ra,dec),n_signal,p0=initial_guess)
+    fitted_values = gaus_2D((ra,dec),*popt)
 
     print(np.shape(ra))
     plt.plot(ra, n_signal, ls='', marker='.', label='actual signal')
@@ -130,11 +136,8 @@ def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
                         len_dec, nsamp):
     '''
     Work in progress
-
     Compute bias for all different input features
-
     Construct a model that can predict bias behavior
-
     *use deep learning forecasting techniques
     '''
 
@@ -144,7 +147,7 @@ def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
     ra = np.array(np.linspace(0,len_ra,nsamp))
     dec = np.array(np.linspace(0,len_dec,nsamp))
 
-    for sigma,bw,r,d in sigma0:
+    for sigma,bw,r,d in zip(sigma0,beam_width,ra,dec):
         fin, psdin = noise_psd(sigma0, fknee=0.020, alpha=1.5)
         fitted,bias = scan_planet(nsamp,ra=r,dec=d)
         bias_matrix[sigma,bw,r,d] = bias
@@ -153,16 +156,30 @@ def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
     #plt.plot(sigma0,bias_sigma)
 
 
-def exclude_fitting_bias():
+def exclude_fitting_bias(max_iterations):
     '''
     Work in progress
 
     add more noise each time considering the fitted curve
-    as the true one (just signal) and then re-estimate the
+    as the true one (just signal) and then re-estimate the 
     bias. If bias is increasing then part of it is probably
     also caused by the fitting and not only noise systematics
 
     '''
+    nsamp,fsamp = 1000,50
+    noise = nm.noise_rel(nsamp,fsamp)
+    fitted_values,bias = scan_planet()
+    rel_bias = []
+    for i in range (max_iterations):
+        bias0 = bias
+        true_signal = fitted_values 
+        noisy_signal = true_signal+noise 
+        fitted_values = fit_noise()
+        bias = estimate_bias(true_signal,fitted_values)
+        rel_bias.append(bias-bias0)
+        
+    plt.plot(rel_bias)
+
 
 def main():
 
@@ -172,8 +189,3 @@ if __name__ == '__main__':
     main()
 #print(fitted_values)
 #print(bias)
-
-
-
-
-
