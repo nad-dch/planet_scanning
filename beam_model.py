@@ -20,12 +20,10 @@ def H_beam():
     construct Hiroaki's beam(band-averaged 
     truncated Gaussian)
     '''
-    pass()
-
 def po_beam():
 
-    pass
-
+    '''
+    '''
 def main():
 
     return
