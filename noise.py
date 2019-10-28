@@ -193,12 +193,17 @@ def noise_rel(nsamp, fsamp, fin=None, psdin=None):
     '''
 
     # Ensure that input parameters are interpreted as floats
-    nsamp = int(nsamp)
-    fsamp = int(fsamp)
+    cut_last=False
+    nsamp = float(nsamp)
+    fsamp = float(fsamp)
 
     # Using default values
     if fin is None or psdin is None:
         fin, psdin = noise_psd()
+
+    if nsamp%2 == 1:
+        nsamp += 1
+        cut_last=True
 
     hnsamp = nsamp/2 # Half the length of the output timestream
     hnsamp=int(hnsamp)
@@ -234,8 +239,10 @@ def noise_rel(nsamp, fsamp, fin=None, psdin=None):
     ntilde[(hnsamp+1):] = ntmp
     # ntilde is now conjugate symmetric
     noise = np.fft.ifft(ntilde)*nsamp
+    if cut_last:
+        noise = noise[:-1]
 
-    return noise
+    return np.real(noise)
 
 def test_noise_model():
 

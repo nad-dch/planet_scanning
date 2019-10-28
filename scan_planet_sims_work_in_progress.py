@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
@@ -7,26 +9,9 @@ import tod
 import noise as nm
 import beam_model as bm
 import planet_model as pm
+import plotting_tools as pt
 import example_jpl as jpl
 opj = os.path.join
-
-
-def gaus_2D((x, y), mean_x, mean_y, sigma_x, sigma_y, xo, yo, amplitude=1, 
-        theta=0, offset=0): 
-    '''
-    The Gaussian probability function
-    Returns
-    -------
-    Array of Gaussian curve values
-    '''
-    
-    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
-    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
-    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
-    g = amplitude*np.exp( - (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) 
-    + c*((y-yo)**2)))
-
-    return (g.ravel())
 
 def get_interpolated_theta(ra,dec,nsamp):
     '''
@@ -46,7 +31,7 @@ def get_interpolated_theta(ra,dec,nsamp):
 
     return(rai,deci,theta_int)
 
-def estimate_bias(expected,measured):
+def estimate_bias(expected, measured):
     '''
     Returns the bias of the estimation
     '''
@@ -56,7 +41,8 @@ def estimate_bias(expected,measured):
     return(bias)
 
 def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
-        beam_type='gaussian', noise_type=None, compute_bias=True):
+        cr=[-1, -1, 1, 1], numel=[101, 101, 0], beam_type='gaussian',
+        fwhm=40., noise_type=None, compute_bias=True):
 
     '''
     A function that outputs the signal tod from a planet scanning
@@ -76,27 +62,26 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
         bias : the bias of the estimation
     '''
 
-    if real_data == False:
-        ra, dec = tod.fake_raster(nsamp)
+    if not real_data:
+        nsamp = numel[0]*numel[1]
+        ra, dec = tod.fake_raster(cr=cr, numel=numel)
         theta = np.sqrt(ra**2 + dec**2)
         amplitude = 1.0
 
     else:
-
         ra,dec = jpl.get_planet_timelines(5,20100101,20110101,1)
-        ra,dec,theta = get_interpolated_theta(ra,dec,nsamp)
+        ra,dec,theta = get_interpolated_theta(ra, dec, nsamp)
         amplitude = pm.planck_func(nu,T)
 
     if beam_type=='gaussian':
-        signal = amplitude * bm.gaussian_beam(theta)
-
+        signal = amplitude * bm.gaussian_beam(theta, fwhm=fwhm)
 
     if noise_type == None:
         print('Noise type is None')
         noise = np.zeros_like(signal)
 
     if noise_type == 'white':
-        noise = nm.white(nsamp,sigma=0.01)
+        noise = nm.white_noise(nsamp, sigma=0.01)
 
     elif noise_type =='onef':
         noise = nm.noise_rel(nsamp, fsamp=5)
@@ -107,29 +92,40 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
     n_signal = signal + noise
 
     #fit the curve in the presence of noise
-    n_signal = np.real(n_signal)
-    mean_ra = sum(ra*n_signal)/len(ra)
-    sigma_ra = sum(n_signal*(ra-mean_ra)**2)/len(ra)
-    mean_dec = sum(dec*n_signal)/len(dec)
-    sigma_dec = sum(n_signal*(dec-mean_dec)**2)/len(dec)
-    initial_guess = (1,mean_ra,mean_dec,sigma_ra,sigma_dec,0,0)
-    print(len(ra),len(dec),len(n_signal))
-    popt,pcov = curve_fit(gaus_2D,(ra,dec),n_signal,p0=initial_guess)
-    fitted_values = gaus_2D((ra,dec),*popt)
+    mean_ra = np.sum(ra*n_signal)/len(ra)
+    sigma_ra = np.sum(n_signal*(ra-mean_ra)**2)/len(ra)
+    mean_dec = np.sum(dec*n_signal)/len(dec)
+    sigma_dec = np.sum(n_signal*(dec-mean_dec)**2)/len(dec)
+    initial_guess = (1, mean_ra, mean_dec, sigma_ra, sigma_dec, 0, 0)
 
-    print(np.shape(ra))
-    plt.plot(ra, n_signal, ls='', marker='.', label='actual signal')
-    plt.plot(ra, fitted_values, ls='', marker='.', label='fitted signal')
+    print(np.sum(np.isnan(n_signal)))
+    print(len(ra), len(dec), len(n_signal))
+    n_signal = np.reshape(n_signal, (numel[0], numel[1]))
+    print(np.shape(n_signal))
+    print(np.sum(np.isnan(n_signal)))
+
+    cx, cy, sx, sy, angle, e, cr_eg, numel_eg, model_out = \
+        bm.gfit(cr, numel, n_signal, gfwhm=40./60,
+            gell=0.01, fit_radius=1.0, return_model=True,
+            verbose=True)
+
+    # Plotting raw (noisy) beam map
+    pt.plot_beam(cr, numel, n_signal, fname='test', log=False)
+
+    # Plotting timelines as a function of az
+    plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='actual signal')
+    plt.plot(ra, model_out.flatten(), ls='', marker='.',
+        label='fitted signal', alpha=0.5)
     plt.legend()
-    plt.show()
+    plt.savefig(opj('img/', 'comparison.png'), dpi=300)
 
-
+    # Needs work
     if compute_bias == True:
-        bias = estimate_bias(signal,fitted_values)
-        #print(bias)
+        bias = estimate_bias(signal, fitted_values)
+        print(signal[100],n_signal[100],fitted_values[100],bias)
+        return(fitted_values,bias)
 
-    print(signal[100],n_signal[100],fitted_values[100],bias)
-    return(fitted_values,bias)
+    return
 
 
 def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
@@ -161,7 +157,7 @@ def exclude_fitting_bias(max_iterations):
     Work in progress
 
     add more noise each time considering the fitted curve
-    as the true one (just signal) and then re-estimate the 
+    as the true one (just signal) and then re-estimate the
     bias. If bias is increasing then part of it is probably
     also caused by the fitting and not only noise systematics
 
@@ -172,18 +168,19 @@ def exclude_fitting_bias(max_iterations):
     rel_bias = []
     for i in range (max_iterations):
         bias0 = bias
-        true_signal = fitted_values 
-        noisy_signal = true_signal+noise 
+        true_signal = fitted_values
+        noisy_signal = true_signal+noise
         fitted_values = fit_noise()
         bias = estimate_bias(true_signal,fitted_values)
         rel_bias.append(bias-bias0)
-        
+
     plt.plot(rel_bias)
 
 
 def main():
 
-    fitted_values, bias = scan_planet(noise_type='onef')
+    scan_planet(noise_type='white', fwhm=35.0/60.,
+        compute_bias=False)
 
 if __name__ == '__main__':
     main()
