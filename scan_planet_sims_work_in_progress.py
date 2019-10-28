@@ -98,11 +98,8 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
     sigma_dec = np.sum(n_signal*(dec-mean_dec)**2)/len(dec)
     initial_guess = (1, mean_ra, mean_dec, sigma_ra, sigma_dec, 0, 0)
 
-    print(np.sum(np.isnan(n_signal)))
-    print(len(ra), len(dec), len(n_signal))
     n_signal = np.reshape(n_signal, (numel[0], numel[1]))
-    print(np.shape(n_signal))
-    print(np.sum(np.isnan(n_signal)))
+    noise = np.reshape(noise, (numel[0], numel[1]))
 
     cx, cy, sx, sy, angle, e, cr_eg, numel_eg, model_out = \
         bm.gfit(cr, numel, n_signal, gfwhm=40./60,
@@ -110,7 +107,15 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
             verbose=True)
 
     # Plotting raw (noisy) beam map
-    pt.plot_beam(cr, numel, n_signal, fname='test', log=False)
+    pt.plot_beam(cr, numel, n_signal, fname='noisy_signal', log=False)
+
+    pt.plot_beam(cr, numel, model_out, fname='fit', log=False)
+
+    pt.plot_beam(cr, numel, n_signal-model_out, vmin=-0.02, vmax=0.02,
+        fname='diff', log=False)
+
+    pt.plot_beam(cr, numel, noise, vmin=-0.02, vmax=0.02,
+        fname='noise', log=False)
 
     # Plotting timelines as a function of az
     plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='actual signal')
