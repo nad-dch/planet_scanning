@@ -42,12 +42,12 @@ def estimate_bias(expected, measured):
 
 def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
         cr=[-1, -1, 1, 1], numel=[101, 101, 0], beam_type='elliptical', p=None,
-        fwhm=40.0, noise_type=None, compute_bias=True):
+        fwhm=40./60., angle=30., ec=1.5, noise_type=None, compute_bias=True):
 
     '''
     A function that outputs the signal tod from a planet scanning
     Arguments:
-        real_data : bool. If True use planet timelines otherwise 
+        real_data : bool. If True use planet timelines otherwise
             create fake ra and dec through tod.py functions.
         nsamp : sample length
         planet_id : define the planet you want to scan
@@ -85,9 +85,10 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
     elif beam_type == 'elliptical':
 
         if p == None:
-            p = [0,0,0,fwhm,0.01,0]
+            p = [0, 0, angle, fwhm, ec, amplitude]
 
-        signal = amplitude * bm.eg(p,ra,dec)
+        signal = bm.eg(p, ra, dec)
+
 
     if noise_type == None:
         print('Noise type is None')
@@ -131,9 +132,10 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
         fname='noise', log=False)
 
     # Plotting timelines as a function of az
-    plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='actual signal')
+    plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='signal+noise')
     plt.plot(ra, model_out.flatten(), ls='', marker='.',
         label='fitted signal', alpha=0.5)
+    plt.plot(ra, signal.flatten(), ls='', marker='.', label='signal')
     plt.legend()
     plt.savefig(opj('img/', 'comparison.png'), dpi=300)
 
