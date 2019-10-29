@@ -80,7 +80,7 @@ def eg(p, x, y, fit4dc=False):
 
 def eg_res(p, x, y, data, sigma, fit4dc=False):
     '''
-    Subtract EG model from data. To be used as input function for least 
+    Subtract EG model from data. To be used as input function for least
     squares optimization which computes the vector of the residuals.
     '''
 
@@ -92,14 +92,14 @@ def egfit(Data, fit_radius=0.5, fit4dc=False, pguess=None, benchmark=False,
     force_center=False):
 
     '''
-    Perform an elliptical Gaussian fitting through a least square 
+    Perform an elliptical Gaussian fitting through a least square
     optimization for the real solution and the desired eg one.
 
     Arguments:
-    Data: x,y are the fit parameters and data are the values 
+    Data: x,y are the fit parameters and data are the values
         to be fitted.
     fit_radius : float, optional. If True fitting happens for the data
-        with r<fit_radius. 
+        with r<fit_radius.
     fit4dc : bool. Give a baseline offset ??
     pguess : array-like, initial guess.
     Benchmark : bool. Used for testing/timing functions.
@@ -130,7 +130,7 @@ def egfit(Data, fit_radius=0.5, fit4dc=False, pguess=None, benchmark=False,
             pguess = [0.0, 0.0, 1.0, 0.5, 1.0, data[ifit].max()]
 
         # optimize.leastsq outputs :
-        # infodict : {#function calls,function evaluated at the output, 
+        # infodict : {#function calls,function evaluated at the output,
         #...(technical characteristics)}
         # success : if it is equal to 1,2,3,4, the solution was found
         po, cov, infodict, errmsg, success = optimize.leastsq(eg_res, pguess,
@@ -157,10 +157,10 @@ def egfit(Data, fit_radius=0.5, fit4dc=False, pguess=None, benchmark=False,
     return po, cov, model, res
 
 def gfit(cr, numel, arr1, verbose=True, gfwhm=0.4, gell=0.01, fit_radius=1.0,
-    return_model=False, benchmark=False):
+    return_model=False):
 
     '''
-    Perform a 2-D Gaussian/Elliptical gaussian fit and print the 
+    Perform a 2-D Gaussian/Elliptical gaussian fit and print the
     parameters of the fitting.
 
     Arguments:
@@ -170,21 +170,14 @@ def gfit(cr, numel, arr1, verbose=True, gfwhm=0.4, gell=0.01, fit_radius=1.0,
         gfwhm :
         gell :
         fit_radius : float, optional
-        return_model : Include cr, numel and model_out at when 
+        return_model : Include cr, numel and model_out at when
                     printing the fitting parameters.
         benchmark : bool. If True time the function.
 
     '''
 
-    t0 = time.time()
-
     xx, yy, dA = bt.get_mesh(cr, numel)
     x, y = bt.get_lin(cr, numel, mult=1)
-
-    t2 = time.time()
-
-    t3 = time.time()
-
     Data = {'data':arr1, 'x':xx, 'y':yy}
 
     srln = np.sqrt(8*np.log(2))
@@ -192,23 +185,11 @@ def gfit(cr, numel, arr1, verbose=True, gfwhm=0.4, gell=0.01, fit_radius=1.0,
     po, cov, model_out1, res1 = egfit(Data, fit_radius=fit_radius,
         fit4dc=False, pguess=pguess1)
 
-    t4 = time.time()
-
-    # ellipticity depending on the fwhm 
     fwhm_x = po[3]/np.sqrt(po[4])
-    sx = fwhm_x /np.sqrt(8*np.log(2))
+    sx = np.abs(fwhm_x /np.sqrt(8*np.log(2)))
     sy = sx*po[4]
-
-    sx = np.abs(sx)
-    sy = np.abs(sy)
-
-    cx = po[0]
-    cy = po[1]
-
-    ellipticity = (np.max([sx, sy])-np.min([sx, sy])) / \
-        (sx+sy)
-
-    t5 = time.time()
+    cx, cy = po[0], po[1]
+    ellipticity = (np.max([sx, sy])-np.min([sx, sy])) / (sx+sy)
 
     if verbose:
 
@@ -219,11 +200,6 @@ def gfit(cr, numel, arr1, verbose=True, gfwhm=0.4, gell=0.01, fit_radius=1.0,
         print('  FWHM              : {:5.3f} arcmin'.format(np.abs(po[3])*60))
         print('  Rotation angle : {:5.2f} deg'.format(po[2]))
         print('  Ellipticity    : {:5.4f}'.format(ellipticity))
-
-    if benchmark:
-        print('Timing results:')
-        for t in [t0, t1, t2, t3, t4, t5]:
-            print('  t = {}'.format(t-t0))
 
     if return_model:
         return cx, cy, sx, sy, np.abs(po[3]), ellipticity, cr, numel, model_out1
