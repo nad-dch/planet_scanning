@@ -43,6 +43,10 @@ def center_map(cr, numel, arr, ix=None):
 
 def get_lin(cr, numel, mult=10):
 
+    '''
+    get the linear space for given cr and numel
+    '''
+
     x2 = np.linspace(cr[0], cr[2], mult*numel[0])
     y2 = np.linspace(cr[1], cr[3], mult*numel[1])
 
@@ -54,6 +58,10 @@ def get_da(cr, numel, mult=1):
     return ((float(cr[2])-float(cr[0]))/(mult*float(numel[0])))**2
 
 def get_mesh(cr, numel, mult=1.0):
+
+    '''
+    Return shaped 2-dimensional arrays
+    '''
 
     xx, yy = np.meshgrid(np.linspace(cr[0], cr[2], mult*numel[0]),
         np.linspace(cr[1], cr[3], mult*numel[1]))

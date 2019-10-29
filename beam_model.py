@@ -30,6 +30,19 @@ def po_beam():
     '''
 
 def eg(p, x, y, fit4dc=False):
+    '''
+    construct an elliptical Gaussian function
+
+    Arguments:
+    p: array of floats given in the form
+    [X_offset,Y_offset,rot_angle,fwhm,ell,amp]
+
+    x,y : the parameters of the fitting.
+    fit4dc :
+
+    Returns:
+    The elliptical Gaussian curve
+    '''
 
     # X offset
     beamx = p[0]
@@ -66,6 +79,10 @@ def eg(p, x, y, fit4dc=False):
     return A*np.exp(-(xp/sig_x)**2 /2 - (yp/sig_y)**2 / 2) + offset
 
 def eg_res(p, x, y, data, sigma, fit4dc=False):
+    '''
+    Subtract EG model from data. To be used as input function for least 
+    squares optimization which computes the vector of the residuals.
+    '''
 
     out = ((data-eg(p, x, y, fit4dc=fit4dc))/sigma).flatten()
 
@@ -73,6 +90,26 @@ def eg_res(p, x, y, data, sigma, fit4dc=False):
 
 def egfit(Data, fit_radius=0.5, fit4dc=False, pguess=None, benchmark=False,
     force_center=False):
+
+    '''
+    Perform an elliptical Gaussian fitting through a least square 
+    optimization for the real solution and the desired eg one.
+
+    Arguments:
+    Data: x,y are the fit parameters and data are the values 
+        to be fitted.
+    fit_radius : float, optional. If True fitting happens for the data
+        with r<fit_radius. 
+    fit4dc : bool. Give a baseline offset ??
+    pguess : array-like, initial guess.
+    Benchmark : bool. Used for testing/timing functions.
+    force_center : bool. If false center is placed at (x0,y0)=(0,0)
+
+    Returns:
+    model : the fitted values
+    res : the residuals between fitting and real data
+
+    '''
 
     x, y, data = Data['x'], Data['y'], Data['data']
     if fit_radius is not None:
@@ -92,6 +129,10 @@ def egfit(Data, fit_radius=0.5, fit4dc=False, pguess=None, benchmark=False,
         elif pguess is None:
             pguess = [0.0, 0.0, 1.0, 0.5, 1.0, data[ifit].max()]
 
+        # optimize.leastsq outputs :
+        # infodict : {#function calls,function evaluated at the output, 
+        #...(technical characteristics)}
+        # success : if it is equal to 1,2,3,4, the solution was found
         po, cov, infodict, errmsg, success = optimize.leastsq(eg_res, pguess,
             args=(x[ifit], y[ifit], data[ifit], sigma, fit4dc),
             full_output=1)
@@ -118,6 +159,23 @@ def egfit(Data, fit_radius=0.5, fit4dc=False, pguess=None, benchmark=False,
 def gfit(cr, numel, arr1, verbose=True, gfwhm=0.4, gell=0.01, fit_radius=1.0,
     return_model=False, benchmark=False):
 
+    '''
+    Perform a 2-D Gaussian/Elliptical gaussian fit and print the 
+    parameters of the fitting.
+
+    Arguments:
+        cr : maximum limits of x and y linear spaces (degrees)
+        numel : number of values inside the linear spaces
+        arr1 : values to be fitted
+        gfwhm :
+        gell :
+        fit_radius : float, optional
+        return_model : Include cr, numel and model_out at when 
+                    printing the fitting parameters.
+        benchmark : bool. If True time the function.
+
+    '''
+
     t0 = time.time()
 
     xx, yy, dA = bt.get_mesh(cr, numel)
@@ -136,6 +194,7 @@ def gfit(cr, numel, arr1, verbose=True, gfwhm=0.4, gell=0.01, fit_radius=1.0,
 
     t4 = time.time()
 
+    # ellipticity depending on the fwhm 
     fwhm_x = po[3]/np.sqrt(po[4])
     sx = fwhm_x /np.sqrt(8*np.log(2))
     sy = sx*po[4]

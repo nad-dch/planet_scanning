@@ -13,10 +13,10 @@ import plotting_tools as pt
 import example_jpl as jpl
 opj = os.path.join
 
-def get_interpolated_theta(ra,dec,nsamp):
+def get_interpolated_theta(ra,dec,numel=[101, 101, 0]):
     '''
     Interpolates ra and dec to correspond to
-    the given sample length
+    the given sample length (numel)
     Returns
     -------
     theta_int : float
@@ -24,7 +24,7 @@ def get_interpolated_theta(ra,dec,nsamp):
     '''
 
     x = np.arange(len(ra))
-    xi = np.linspace(0, len(x), nsamp)
+    xi = np.linspace(0, len(x), numel[0]*numel[1])
     rai = np.interp(xi, x, ra)
     deci = np.interp(xi, x, dec)
     theta_int = np.sqrt(rai**2 + deci**2)
@@ -41,18 +41,24 @@ def estimate_bias(expected, measured):
     return(bias)
 
 def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
-        cr=[-1, -1, 1, 1], numel=[101, 101, 0], beam_type='gaussian',
-        fwhm=40., noise_type=None, compute_bias=True):
+        cr=[-1, -1, 1, 1], numel=[101, 101, 0], beam_type='elliptical', p=None,
+        fwhm=40.0, noise_type=None, compute_bias=True):
 
     '''
     A function that outputs the signal tod from a planet scanning
     Arguments:
+        real_data : bool. If True use planet timelines otherwise 
+            create fake ra and dec through tod.py functions.
         nsamp : sample length
         planet_id : define the planet you want to scan
         nu : frequency
         T : blackbody temperature of the planet (110K for Jupyter)
+        cr : individual limits for the parameters in degrees
+        numel : number of values inside the linear spaces
         beam_type : gaussian, physical optics, elliptical gaussian
-        noise_presence : bool
+        p : initial guess
+        fwhm : full-width-half-maximum that characterizes the beam
+        noise_presence : bool.If True choose noise_type.
         noise_type : string 'gaussian','onef'
         compute_bias : bool. default value = True
     Returns:
@@ -70,11 +76,18 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
 
     else:
         ra,dec = jpl.get_planet_timelines(5,20100101,20110101,1)
-        ra,dec,theta = get_interpolated_theta(ra, dec, nsamp)
+        ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
         amplitude = pm.planck_func(nu,T)
 
     if beam_type=='gaussian':
         signal = amplitude * bm.gaussian_beam(theta, fwhm=fwhm)
+
+    elif beam_type == 'elliptical':
+
+        if p == None:
+            p = [0,0,0,fwhm,0.01,0]
+
+        signal = amplitude * bm.eg(p,ra,dec)
 
     if noise_type == None:
         print('Noise type is None')
