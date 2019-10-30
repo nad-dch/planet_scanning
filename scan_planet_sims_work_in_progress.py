@@ -1,5 +1,3 @@
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
@@ -13,7 +11,7 @@ import plotting_tools as pt
 import example_jpl as jpl
 opj = os.path.join
 
-def get_interpolated_theta(ra,dec,numel=[101, 101, 0]):
+def get_interpolated_theta(ra, dec, numel):
     '''
     Interpolates ra and dec to correspond to
     the given sample length (numel)
@@ -40,9 +38,75 @@ def estimate_bias(expected, measured):
     bias = np.sum(bias)
     return(bias)
 
-def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
-        cr=[-1, -1, 1, 1], numel=[101, 101, 0], beam_type='elliptical', p=None,
-        fwhm=40./60., angle=30., ec=1.5, noise_type=None, compute_bias=True):
+def create_data(dates, real_data=False,cr=[-1, -1, 1, 1],
+    numel=[101, 101, 0]):
+
+    '''
+    Create a real or fake dataset
+    '''
+
+    if not real_data:
+        nsamp = numel[0]*numel[1]
+        ra, dec = tod.fake_raster(cr=cr, numel=numel)
+        theta = np.sqrt(ra**2 + dec**2)
+        amplitude = 1.0
+
+    else:
+
+        if dates is None:
+            ra,dec = jpl.get_planet_timelines(5,20100101,20110101,1)
+        else:    
+            ra,dec = jpl.get_planet_timelines(5,dates[0],dates[1],1)
+
+        ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
+        amplitude = pm.planck_func(nu,T)
+
+    return(ra,dec,theta,amplitude)
+
+def fit_signal(ra,dec, n_signal, cr=[-1, -1, 1, 1],
+                numel=[101, 101, 0]):
+    '''
+    '''
+    #fit the curve in the presence of noise
+    mean_ra = np.sum(ra*n_signal)/len(ra)
+    sigma_ra = np.sum(n_signal*(ra-mean_ra)**2)/len(ra)
+    mean_dec = np.sum(dec*n_signal)/len(dec)
+    sigma_dec = np.sum(n_signal*(dec-mean_dec)**2)/len(dec)
+    initial_guess = (1, mean_ra, mean_dec, sigma_ra, sigma_dec, 0, 0)
+
+    n_signal = np.reshape(n_signal, (numel[0], numel[1]))
+    noise = np.reshape(noise, (numel[0], numel[1]))
+
+    cx, cy, sx, sy, angle, e, cr_eg, numel_eg, model_out = \
+    bm.gfit(cr, numel, n_signal, gfwhm=40./60,
+    gell=0.01, fit_radius=1.0, return_model=True,
+    verbose=True)
+
+    # Plotting raw (noisy) beam map
+    pt.plot_beam(cr, numel, n_signal, fname='noisy_signal', log=False)
+
+    pt.plot_beam(cr, numel, model_out, fname='fit', log=False)
+
+    pt.plot_beam(cr, numel, n_signal-model_out, vmin=-0.02, vmax=0.02,
+    fname='diff', log=False)
+
+    pt.plot_beam(cr, numel, noise, vmin=-0.02, vmax=0.02,
+    fname='noise', log=False)
+
+    # Plotting timelines as a function of az
+    plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='signal+noise')
+    plt.plot(ra, model_out.flatten(), ls='', marker='.',
+    label='fitted signal', alpha=0.5)
+    plt.plot(ra, signal.flatten(), ls='', marker='.', label='signal')
+    plt.legend()
+    plt.savefig(opj('img/', 'comparison.png'), dpi=300)
+
+    return(model_out)
+
+
+def scan_planet(Data, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e9, T=110,
+                beam_type='gaussian', p=None, fwhm=40./60., angle=30., ec=1.5, 
+                noise_type='random', fit=False, compute_bias=False):
 
     '''
     A function that outputs the signal tod from a planet scanning
@@ -67,17 +131,11 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
                                     noisy signals fitted values
         bias : the bias of the estimation
     '''
-
-    if not real_data:
-        nsamp = numel[0]*numel[1]
-        ra, dec = tod.fake_raster(cr=cr, numel=numel)
-        theta = np.sqrt(ra**2 + dec**2)
-        amplitude = 1.0
+    if Data == None:
+        ra,dec,theta,amplitude = create_data()
 
     else:
-        ra,dec = jpl.get_planet_timelines(5,20100101,20110101,1)
-        ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
-        amplitude = pm.planck_func(nu,T)
+        ra,dec,theta,amplitude = Data[0], Data[1], Data[2], Data[3]
 
     if beam_type=='gaussian':
         signal = amplitude * bm.gaussian_beam(theta, fwhm=fwhm)
@@ -89,63 +147,36 @@ def scan_planet(real_data=False, nsamp=1000, planet_id=5, nu=100e9, T=110,
 
         signal = bm.eg(p, ra, dec)
 
-
     if noise_type == None:
         print('Noise type is None')
         noise = np.zeros_like(signal)
 
     if noise_type == 'white':
-        noise = nm.white_noise(nsamp, sigma=0.01)
+        noise = nm.white_noise(numel[0]*numel[1], sigma=0.01)
 
-    elif noise_type =='onef':
-        noise = nm.noise_rel(nsamp, fsamp=5)
+    if noise_type =='onef':
+        noise = nm.noise_rel(numel[0]*numel[1], fsamp=5)
+
+    elif noise_type == 'random':
+        noise = np.random.randn(len(signal))
+
 
     else:
-        raise ValueError('Noise is either None or in [white, onef]')
+        raise ValueError('Noise is either None or in [white, onef, random]')
 
     n_signal = signal + noise
 
-    #fit the curve in the presence of noise
-    mean_ra = np.sum(ra*n_signal)/len(ra)
-    sigma_ra = np.sum(n_signal*(ra-mean_ra)**2)/len(ra)
-    mean_dec = np.sum(dec*n_signal)/len(dec)
-    sigma_dec = np.sum(n_signal*(dec-mean_dec)**2)/len(dec)
-    initial_guess = (1, mean_ra, mean_dec, sigma_ra, sigma_dec, 0, 0)
+    if fit:
 
-    n_signal = np.reshape(n_signal, (numel[0], numel[1]))
-    noise = np.reshape(noise, (numel[0], numel[1]))
+        fitted_values = fit_signal(ra,dec,n_signal)
 
-    cx, cy, sx, sy, angle, e, cr_eg, numel_eg, model_out = \
-        bm.gfit(cr, numel, n_signal, gfwhm=40./60,
-            gell=0.01, fit_radius=1.0, return_model=True,
-            verbose=True)
+        # Needs work
+        if compute_bias:
 
-    # Plotting raw (noisy) beam map
-    pt.plot_beam(cr, numel, n_signal, fname='noisy_signal', log=False)
+            bias = estimate_bias(signal, fitted_values)
+            return(fitted_values,bias)
 
-    pt.plot_beam(cr, numel, model_out, fname='fit', log=False)
-
-    pt.plot_beam(cr, numel, n_signal-model_out, vmin=-0.02, vmax=0.02,
-        fname='diff', log=False)
-
-    pt.plot_beam(cr, numel, noise, vmin=-0.02, vmax=0.02,
-        fname='noise', log=False)
-
-    # Plotting timelines as a function of az
-    plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='signal+noise')
-    plt.plot(ra, model_out.flatten(), ls='', marker='.',
-        label='fitted signal', alpha=0.5)
-    plt.plot(ra, signal.flatten(), ls='', marker='.', label='signal')
-    plt.legend()
-    plt.savefig(opj('img/', 'comparison.png'), dpi=300)
-
-    # Needs work
-    if compute_bias == True:
-        bias = estimate_bias(signal, fitted_values)
-        print(signal[100],n_signal[100],fitted_values[100],bias)
-        return(fitted_values,bias)
-
-    return
+    return(signal/noise)
 
 
 def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
@@ -194,15 +225,65 @@ def exclude_fitting_bias(max_iterations):
         bias = estimate_bias(true_signal,fitted_values)
         rel_bias.append(bias-bias0)
 
-    plt.plot(rel_bias)
+    return(rel_bias)
+
+
+def run_sims(sim_number, pace, parameter='noise'):
+
+    sn_ratio = []
+
+    if parameter == 'noise':
+
+        for i in range(sim_number):
+            sn_ratio.append(np.mean(scan_planet(noise_type='random')))
+
+    if parameter == 'fwhm':
+
+        fwhm = 38./60
+
+        for i in range(sim_number):
+            sn_ratio.append(np.mean(scan_planet(fwhm=fwhm)))
+            fwhm = fwhm + pace
+
+    if parameter == 'nsamp':
+
+        nsamp = 1000
+
+        for i in range(sim_number):
+            sn_ratio.append(np.mean(scan_planet(numel=[np.sqrt(nsamp),
+                                                np.sqrt(nsamp),0])))
+            nsamp = nsamp + pace
+
+    elif parameter == 'ra_dec':
+
+        start_date = 20100101
+        end_date = 20110101
+
+        for i in range(sim_number):
+
+            # needs further work
+
+            ra,dec = jpl.get_planet_timelines(5,start_date,end_date,1)
+            ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
+            amplitude = pm.planck_func(nu,T)
+            Data = [ra,dec,theta,amplitude]
+            sn_ratio.append(np.mean(scan_planet(Data=Data)))
+            start_date = start_date + pace
+            end_date = end_date + pace
+
+
+    [n,bins] = np.histogram(sn_ratio,bins=101)
+    plt.plot(bins[:-1],n)
+    plt.savefig(opj('img/', 'sn_'+str(parameter)+'.png'))
+    #return(sn_ratio)
+
 
 
 def main():
 
-    scan_planet(noise_type='white', fwhm=35.0/60.,
-        compute_bias=False)
+    run_sims(100)
 
 if __name__ == '__main__':
     main()
-#print(fitted_values)
-#print(bias)
+
+
