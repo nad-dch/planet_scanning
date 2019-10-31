@@ -38,7 +38,7 @@ def estimate_bias(expected, measured):
     bias = np.sum(bias)
     return(bias)
 
-def create_data(dates, real_data=False,cr=[-1, -1, 1, 1],
+def create_data(dates=None, real_data=False,cr=[-1, -1, 1, 1],
     numel=[101, 101, 0]):
 
     '''
@@ -63,7 +63,7 @@ def create_data(dates, real_data=False,cr=[-1, -1, 1, 1],
 
     return(ra,dec,theta,amplitude)
 
-def fit_signal(ra,dec, n_signal, cr=[-1, -1, 1, 1],
+def fit_signal(ra, dec, signal, noise, n_signal, cr=[-1, -1, 1, 1],
                 numel=[101, 101, 0]):
     '''
     '''
@@ -101,12 +101,12 @@ def fit_signal(ra,dec, n_signal, cr=[-1, -1, 1, 1],
     plt.legend()
     plt.savefig(opj('img/', 'comparison.png'), dpi=300)
 
-    return(model_out)
+    return(model_out.flatten())
 
 
-def scan_planet(Data, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e9, T=110,
+def scan_planet(Data=None, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e9, T=110,
                 beam_type='gaussian', p=None, fwhm=40./60., angle=30., ec=1.5, 
-                noise_type='random', fit=False, compute_bias=False):
+                noise_type='random', fit=True, compute_bias=False):
 
     '''
     A function that outputs the signal tod from a planet scanning
@@ -168,7 +168,7 @@ def scan_planet(Data, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e
 
     if fit:
 
-        fitted_values = fit_signal(ra,dec,n_signal)
+        model_out = fit_signal(ra, dec, signal, noise, n_signal)
 
         # Needs work
         if compute_bias:
@@ -176,7 +176,9 @@ def scan_planet(Data, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e
             bias = estimate_bias(signal, fitted_values)
             return(fitted_values,bias)
 
-    return(signal/noise)
+    #the fitted model compared to the noisy model to check the fitting
+    #the input signal compared to the output after the fitting
+    return(model_out-n_signal,model_out-signal)
 
 
 def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
@@ -228,21 +230,21 @@ def exclude_fitting_bias(max_iterations):
     return(rel_bias)
 
 
-def run_sims(sim_number, pace, parameter='noise'):
+def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
 
-    sn_ratio = []
+    comparison = np.zeros((sim_number,2))
 
     if parameter == 'noise':
 
         for i in range(sim_number):
-            sn_ratio.append(np.mean(scan_planet(noise_type='random')))
+            comparison[i,:] = np.mean(scan_planet(noise_type='random'))
 
     if parameter == 'fwhm':
 
         fwhm = 38./60
 
         for i in range(sim_number):
-            sn_ratio.append(np.mean(scan_planet(fwhm=fwhm)))
+            comparison[i,:] = np.mean(scan_planet(fwhm=fwhm))
             fwhm = fwhm + pace
 
     if parameter == 'nsamp':
@@ -250,8 +252,8 @@ def run_sims(sim_number, pace, parameter='noise'):
         nsamp = 1000
 
         for i in range(sim_number):
-            sn_ratio.append(np.mean(scan_planet(numel=[np.sqrt(nsamp),
-                                                np.sqrt(nsamp),0])))
+            comparison[i,:] = np.mean(scan_planet(numel=[np.sqrt(nsamp),
+                                                np.sqrt(nsamp),0]))
             nsamp = nsamp + pace
 
     elif parameter == 'ra_dec':
@@ -267,21 +269,27 @@ def run_sims(sim_number, pace, parameter='noise'):
             ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
             amplitude = pm.planck_func(nu,T)
             Data = [ra,dec,theta,amplitude]
-            sn_ratio.append(np.mean(scan_planet(Data=Data)))
+            comparison[i,:] = np.mean(scan_planet(Data=Data))
             start_date = start_date + pace
             end_date = end_date + pace
 
+    if plot_comparison:
 
-    [n,bins] = np.histogram(sn_ratio,bins=101)
-    plt.plot(bins[:-1],n)
-    plt.savefig(opj('img/', 'sn_'+str(parameter)+'.png'))
-    #return(sn_ratio)
+        [n,bins] = np.histogram(comparison[:,0], bins=31)
+        plt.plot(bins[:-1], n)
+        plt.savefig(opj('img/', 'fit_noisedata_for_'+str(parameter)+'.png'))
+        [n,bins] = np.histogram(comparison[:,1], bins=31)
+        plt.plot(bins[:-1], n)
+        plt.savefig(opj('img/', 'fit_data_for_'+str(parameter)+'.png'))
+
+    return(comparison)
+
 
 
 
 def main():
 
-    run_sims(100)
+    run_sims(10)
 
 if __name__ == '__main__':
     main()
