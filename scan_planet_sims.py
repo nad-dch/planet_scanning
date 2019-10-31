@@ -280,7 +280,7 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
     if plot_comparison:
 
         [n,bins] = np.histogram(comparison[:,5], bins=31)
-        plt.plot(bins[:-1], n)
+        plt.plot(bins[:-1], n, label='fwhm of the fits')
         plt.savefig(opj('img/', 'comparison_fwhm.png'))
 
     return comparison
