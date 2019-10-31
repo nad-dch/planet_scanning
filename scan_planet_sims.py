@@ -27,7 +27,7 @@ def get_interpolated_theta(ra, dec, numel):
     deci = np.interp(xi, x, dec)
     theta_int = np.sqrt(rai**2 + deci**2)
 
-    return(rai,deci,theta_int)
+    return rai,deci,theta_int
 
 def estimate_bias(expected, measured):
     '''
@@ -61,10 +61,10 @@ def create_data(dates=None, real_data=False,cr=[-1, -1, 1, 1],
         ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
         amplitude = pm.planck_func(nu,T)
 
-    return(ra,dec,theta,amplitude)
+    return ra,dec,theta,amplitude
 
 def fit_signal(ra, dec, signal, noise, n_signal, cr=[-1, -1, 1, 1],
-                numel=[101, 101, 0]):
+                numel=[101, 101, 0], make_plots=False):
     '''
     '''
     #fit the curve in the presence of noise
@@ -77,31 +77,32 @@ def fit_signal(ra, dec, signal, noise, n_signal, cr=[-1, -1, 1, 1],
     n_signal = np.reshape(n_signal, (numel[0], numel[1]))
     noise = np.reshape(noise, (numel[0], numel[1]))
 
-    cx, cy, sx, sy, angle, e, cr_eg, numel_eg, model_out = \
+    cx, cy, sx, sy, angle, e = \
     bm.gfit(cr, numel, n_signal, gfwhm=40./60,
-    gell=0.01, fit_radius=1.0, return_model=True,
+    gell=0.01, fit_radius=1.0, return_model=False,
     verbose=True)
 
-    # Plotting raw (noisy) beam map
-    pt.plot_beam(cr, numel, n_signal, fname='noisy_signal', log=False)
+    if make_plots:
+        # Plotting raw (noisy) beam map
+        pt.plot_beam(cr, numel, n_signal, fname='noisy_signal', log=False)
 
-    pt.plot_beam(cr, numel, model_out, fname='fit', log=False)
+        pt.plot_beam(cr, numel, model_out, fname='fit', log=False)
 
-    pt.plot_beam(cr, numel, n_signal-model_out, vmin=-0.02, vmax=0.02,
-    fname='diff', log=False)
+        pt.plot_beam(cr, numel, n_signal-model_out, vmin=-0.02, vmax=0.02,
+        fname='diff', log=False)
 
-    pt.plot_beam(cr, numel, noise, vmin=-0.02, vmax=0.02,
-    fname='noise', log=False)
+        pt.plot_beam(cr, numel, noise, vmin=-0.02, vmax=0.02,
+        fname='noise', log=False)
 
-    # Plotting timelines as a function of az
-    plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='signal+noise')
-    plt.plot(ra, model_out.flatten(), ls='', marker='.',
-    label='fitted signal', alpha=0.5)
-    plt.plot(ra, signal.flatten(), ls='', marker='.', label='signal')
-    plt.legend()
-    plt.savefig(opj('img/', 'comparison.png'), dpi=300)
+        # Plotting timelines as a function of az
+        plt.plot(ra, n_signal.flatten(), ls='', marker='.', label='signal+noise')
+        plt.plot(ra, model_out.flatten(), ls='', marker='.',
+        label='fitted signal', alpha=0.5)
+        plt.plot(ra, signal.flatten(), ls='', marker='.', label='signal')
+        plt.legend()
+        plt.savefig(opj('img/', 'comparison.png'), dpi=300)
 
-    return(model_out.flatten())
+    return cx, cy, sx, sy, np.sqrt(sx*sy)*np.sqrt(8*np.log(2)), angle, e
 
 
 def scan_planet(Data=None, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e9, T=110,
@@ -168,17 +169,18 @@ def scan_planet(Data=None, real_data=False, numel=[101, 101, 0], planet_id=5, nu
 
     if fit:
 
-        model_out = fit_signal(ra, dec, signal, noise, n_signal)
+        cx, cy, sx, sy, fwhm, angle, e = fit_signal(ra, dec, signal, noise, n_signal)
+        return cx, cy, sx, sy, fwhm, angle, e
 
         # Needs work
         if compute_bias:
 
             bias = estimate_bias(signal, fitted_values)
-            return(fitted_values,bias)
+            return fitted_values,bias
 
     #the fitted model compared to the noisy model to check the fitting
     #the input signal compared to the output after the fitting
-    return(model_out-n_signal,model_out-signal)
+    
 
 
 def parametrizing_bias(len_sigma0, len_beam_width, len_ra,
@@ -227,33 +229,35 @@ def exclude_fitting_bias(max_iterations):
         bias = estimate_bias(true_signal,fitted_values)
         rel_bias.append(bias-bias0)
 
-    return(rel_bias)
+    return rel_bias
 
 
 def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
 
-    comparison = np.zeros((sim_number,2))
+    comparison = np.zeros((sim_number,7))
 
     if parameter == 'noise':
 
         for i in range(sim_number):
-            comparison[i,:] = np.mean(scan_planet(noise_type='random'))
+            comparison[i,:] = scan_planet(noise_type='random')
 
     if parameter == 'fwhm':
 
         fwhm = 38./60
 
         for i in range(sim_number):
-            comparison[i,:] = np.mean(scan_planet(fwhm=fwhm))
+            comparison[i,:] = scan_planet(fwhm=fwhm)
+            comparison[i,5] -= fwhm
             fwhm = fwhm + pace
+
 
     if parameter == 'nsamp':
 
         nsamp = 1000
 
         for i in range(sim_number):
-            comparison[i,:] = np.mean(scan_planet(numel=[np.sqrt(nsamp),
-                                                np.sqrt(nsamp),0]))
+            comparison[i,:] = scan_planet(numel=[np.sqrt(nsamp),
+                                                np.sqrt(nsamp),0])
             nsamp = nsamp + pace
 
     elif parameter == 'ra_dec':
@@ -269,27 +273,24 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
             ra,dec,theta = get_interpolated_theta(ra, dec, numel=numel)
             amplitude = pm.planck_func(nu,T)
             Data = [ra,dec,theta,amplitude]
-            comparison[i,:] = np.mean(scan_planet(Data=Data))
+            comparison[i,:] = scan_planet(Data=Data)
             start_date = start_date + pace
             end_date = end_date + pace
 
     if plot_comparison:
 
-        [n,bins] = np.histogram(comparison[:,0], bins=31)
+        [n,bins] = np.histogram(comparison[:,5], bins=31)
         plt.plot(bins[:-1], n)
-        plt.savefig(opj('img/', 'fit_noisedata_for_'+str(parameter)+'.png'))
-        [n,bins] = np.histogram(comparison[:,1], bins=31)
-        plt.plot(bins[:-1], n)
-        plt.savefig(opj('img/', 'fit_data_for_'+str(parameter)+'.png'))
+        plt.savefig(opj('img/', 'comparison_fwhm.png'))
 
-    return(comparison)
+    return comparison
 
 
 
 
 def main():
 
-    run_sims(10)
+    run_sims(1000)
 
 if __name__ == '__main__':
     main()
