@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
@@ -80,7 +82,7 @@ def fit_signal(ra, dec, signal, noise, n_signal, cr=[-1, -1, 1, 1],
     cx, cy, sx, sy, angle, e = \
     bm.gfit(cr, numel, n_signal, gfwhm=40./60,
     gell=0.01, fit_radius=1.0, return_model=False,
-    verbose=True)
+    verbose=False)
 
     if make_plots:
         # Plotting raw (noisy) beam map
@@ -231,14 +233,21 @@ def exclude_fitting_bias(max_iterations):
 
     return rel_bias
 
+def make_dirs():
+
+    if not os.path.exists('img/'):
+        os.makedirs('img/')
 
 def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
 
     comparison = np.zeros((sim_number,7))
 
+    make_dirs()
+
     if parameter == 'noise':
 
         for i in range(sim_number):
+            print('  sim {}/{}'.format(i, sim_number))
             comparison[i,:] = scan_planet(noise_type='random')
 
     if parameter == 'fwhm':
@@ -287,10 +296,9 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
 
 
 
-
 def main():
 
-    run_sims(1000)
+    run_sims(100)
 
 if __name__ == '__main__':
     main()
