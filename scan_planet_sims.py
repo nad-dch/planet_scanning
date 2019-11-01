@@ -11,6 +11,7 @@ import beam_model as bm
 import planet_model as pm
 import plotting_tools as pt
 import example_jpl as jpl
+import pickle
 opj = os.path.join
 
 def get_interpolated_theta(ra, dec, numel):
@@ -286,8 +287,14 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
             start_date = start_date + pace
             end_date = end_date + pace
 
+
+    with open('run_sims.pkl','wb') as f:
+        pickle.dump(comparison, f)
+
     if plot_comparison:
 
+        with open('run_sims.pkl','rb') as f:
+            comparison = pickle.load(f)
         [n,bins] = np.histogram(comparison[:,5], bins=31)
         plt.xlabel('fwhm difference')
         plt.ylabel('counts')
