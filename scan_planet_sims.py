@@ -109,8 +109,8 @@ def fit_signal(ra, dec, signal, noise, n_signal, cr=[-1, -1, 1, 1],
 
 
 def scan_planet(Data=None, real_data=False, numel=[101, 101, 0], planet_id=5, nu=100e9, T=110,
-                beam_type='gaussian', p=None, fwhm=40./60., angle=30., ec=1.5, 
-                noise_type='random', fit=True, compute_bias=False):
+                beam_type='po', p=None, fwhm=40./60., angle=30., ec=1.5, 
+                noise_type=None, fit=False, compute_bias=False):
 
     '''
     A function that outputs the signal tod from a planet scanning
@@ -151,15 +151,21 @@ def scan_planet(Data=None, real_data=False, numel=[101, 101, 0], planet_id=5, nu
 
         signal = bm.eg(p, ra, dec)
 
+    elif beam_type == 'po':
+        with open('pix0000_150_v5_f1p6_10p0mm_mfreq_linearx_hdpe_prop.pkl','rb') as f:
+            po_beam = pickle.load(f, encoding='latin1')
+        return(po_beam.keys())
+
+
     if noise_type == None:
         print('Noise type is None')
         noise = np.zeros_like(signal)
 
     if noise_type == 'white':
-        noise = nm.white_noise(numel[0]*numel[1], sigma=0.01)
+        noise = nm.white_noise(len(signal), sigma=0.01)
 
     if noise_type =='onef':
-        noise = nm.noise_rel(numel[0]*numel[1], fsamp=5)
+        noise = nm.noise_rel(len(signal), fsamp=5)
 
     elif noise_type == 'random':
         noise = np.random.randn(len(signal))
@@ -263,7 +269,7 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
 
     if parameter == 'nsamp':
 
-        nsamp = 1000
+        nsamp = 10
 
         for i in range(sim_number):
             comparison[i,:] = scan_planet(numel=[np.sqrt(nsamp),
@@ -294,8 +300,8 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
     if plot_comparison:
 
         with open('run_sims.pkl','rb') as f:
-            comparison = pickle.load(f)
-        [n,bins] = np.histogram(comparison[:,5], bins=31)
+            comparison = pickle.load(f,encoding='latin1')
+        [n,bins] = np.histogram(comparison[:,5], bins=21)
         plt.xlabel('fwhm difference')
         plt.ylabel('counts')
         plt.plot(bins[:-1], n, label='fwhm of the fits')
@@ -308,7 +314,8 @@ def run_sims(sim_number, pace=1, parameter='noise', plot_comparison=True):
 
 def main():
 
-    run_sims(100)
+    the_keys = scan_planet()
+    print(the_keys)
 
 if __name__ == '__main__':
     main()
